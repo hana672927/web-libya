@@ -14,49 +14,6 @@ interface OrderForm {
   details: string;
 }
 
-const LS_KEY = 'telegram_settings_fallback';
-
-async function sendDirectToTelegram(form: { name: string; whatsapp: string; storeLink: string; details: string }): Promise<boolean> {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const { botToken, chatId } = JSON.parse(raw) as { botToken?: string; chatId?: string };
-    if (!botToken || !chatId) return false;
-
-    const message = [
-      '<b>طلب جديد - ويب ليبيا</b>',
-      '',
-      `<b>الاسم:</b> ${escapeHtml(form.name.trim()) || '—'}`,
-      `<b>رقم الواتساب:</b> ${escapeHtml(form.whatsapp.trim())}`,
-      `<b>رابط المتجر:</b> ${escapeHtml(form.storeLink.trim()) || 'لا يوجد'}`,
-      '',
-      '<b>تفاصيل الموقع المطلوب:</b>',
-      escapeHtml(form.details.trim()),
-      '',
-      `<i>وقت الطلب: ${new Date().toLocaleString('ar-LY', { timeZone: 'Africa/Tripoli' })}</i>`,
-    ].join('\n');
-
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
-    });
-
-    if (!res.ok) {
-      console.error('Direct Telegram send failed', res.status, await res.text().catch(() => ''));
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error('Direct Telegram send error', error);
-    return false;
-  }
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 export default function Contact({ content }: ContactProps) {
   const [form, setForm] = useState<OrderForm>({
     name: '',
@@ -103,18 +60,7 @@ export default function Contact({ content }: ContactProps) {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        console.error('Telegram order request failed:', response.status, errData);
-        if (response.status === 503) {
-          const fallbackSent = await sendDirectToTelegram(form);
-          if (fallbackSent) {
-            setStatus('sent');
-            setForm({ name: '', whatsapp: '', storeLink: '', details: '' });
-            setTimeout(() => setStatus('idle'), 5000);
-            return;
-          }
-          throw new Error('لم يتم إعداد استقبال الطلبات بعد. يرجى التواصل مع الإدارة.');
-        }
-        throw new Error('تعذر إرسال الطلب حالياً');
+        throw new Error(errData?.error || `HTTP ${response.status}`);
       }
 
       setStatus('sent');
@@ -122,7 +68,7 @@ export default function Contact({ content }: ContactProps) {
       setTimeout(() => setStatus('idle'), 5000);
     } catch (err) {
       setStatus('error');
-      setErrorMsg(err instanceof Error ? err.message : 'تعذر إرسال الطلب. يرجى المحاولة مرة أخرى لاحقاً.');
+      setErrorMsg('تعذر إرسال الطلب. يرجى المحاولة مرة أخرى لاحقاً.');
       console.error('Order send error:', err);
     }
   };
