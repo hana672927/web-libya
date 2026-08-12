@@ -7,7 +7,7 @@ import Contact from '@/components/Contact';
 import Footer from '@/components/Footer';
 import AdminPanel from '@/components/AdminPanel';
 import { useContent } from '@/hooks/useContent';
-import { Loader2 } from 'lucide-react';
+import { Loader as Loader2 } from 'lucide-react';
 
 export default function App() {
   const { content, updateContent, resetContent, loading, error } = useContent();

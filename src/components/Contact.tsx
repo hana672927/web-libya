@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send, CheckCircle2, AlertTriangle, Facebook, Instagram, User, MessageSquare, Link2, Phone } from 'lucide-react';
+import { Send, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Facebook, Instagram, User, MessageSquare, Link2 } from 'lucide-react';
 import { TikTok } from '@/components/icons/TikTok';
 import type { SiteContent } from '@/types';
 
@@ -169,7 +169,6 @@ export default function Contact({ content }: ContactProps) {
                   <span className="text-red-400/80 text-xs mr-1">(إلزامي)</span>
                 </label>
                 <div className="relative">
-                  <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="tel"
                     value={form.whatsapp}

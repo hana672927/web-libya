@@ -1,4 +1,4 @@
-import { CheckCircle2, Zap, Shield, Smartphone, Search, Headphones, Layout } from 'lucide-react';
+import { CircleCheck as CheckCircle2, Zap, Shield, Smartphone, Search, Headphones, LayoutGrid as Layout } from 'lucide-react';
 import type { SiteContent } from '@/types';
 
 interface AboutProps {

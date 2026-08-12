@@ -1,4 +1,4 @@
-import { ArrowLeft, Sparkles, Code2, Palette, Rocket, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Code as Code2, Palette, Rocket, CircleCheck as CheckCircle2 } from 'lucide-react';
 import type { SiteContent } from '@/types';
 
 interface HeroProps {

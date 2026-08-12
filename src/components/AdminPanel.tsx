@@ -26,6 +26,10 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
   const [savedFlash, setSavedFlash] = useState(false);
   const [newPasscode, setNewPasscode] = useState('');
   const [passcodeMsg, setPasscodeMsg] = useState('');
+  const [telegramToken, setTelegramToken] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [telegramMsg, setTelegramMsg] = useState('');
+  const [telegramSaving, setTelegramSaving] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,6 +142,38 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
       },
     }));
     flashSaved();
+  };
+
+  const handleSaveTelegram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTelegramSaving(true);
+    setTelegramMsg('');
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-telegram-config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          adminPasscode: content.adminPasscode,
+          botToken: telegramToken,
+          chatId: telegramChatId,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Telegram settings save failed');
+      setTelegramToken('');
+      setTelegramChatId('');
+      setTelegramMsg('تم حفظ إعدادات Telegram بأمان');
+      flashSaved();
+    } catch (error) {
+      console.error(error);
+      setTelegramMsg('تعذر حفظ إعدادات Telegram');
+    } finally {
+      setTelegramSaving(false);
+    }
   };
 
   const handleChangePasscode = (e: React.FormEvent) => {
@@ -482,6 +518,42 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
                   <ShieldAlert className="w-5 h-5 text-cyan-400" />
                   الأمان والإعدادات
                 </h3>
+
+                <div className="glass-card p-5 space-y-4">
+                  <h4 className="text-royal-300 font-bold text-sm">إعدادات استقبال الطلبات</h4>
+                  <p className="text-slate-400 text-xs leading-relaxed">تُحفظ هذه البيانات في مكان خاص ولا تظهر لزوار الموقع. ستصل الطلبات إلى المحادثة المرتبطة بالبوت مباشرة.</p>
+                  <form onSubmit={handleSaveTelegram} className="space-y-3">
+                    <div>
+                      <label className="block text-slate-300 text-xs mb-1.5">Telegram Bot Token</label>
+                      <input
+                        type="password"
+                        value={telegramToken}
+                        onChange={(e) => setTelegramToken(e.target.value)}
+                        placeholder="أدخل رمز البوت"
+                        required
+                        className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-xs mb-1.5">Telegram Chat ID</label>
+                      <input
+                        type="text"
+                        value={telegramChatId}
+                        onChange={(e) => setTelegramChatId(e.target.value)}
+                        placeholder="أدخل رقم المحادثة"
+                        required
+                        className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
+                        dir="ltr"
+                      />
+                    </div>
+                    <button type="submit" disabled={telegramSaving} className="btn-primary text-sm py-2.5 px-5 flex items-center gap-2 w-fit disabled:opacity-50">
+                      <Save className="w-4 h-4" />
+                      {telegramSaving ? 'جارٍ الحفظ...' : 'حفظ إعدادات Telegram'}
+                    </button>
+                    {telegramMsg && <p className="text-sm text-cyan-300">{telegramMsg}</p>}
+                  </form>
+                </div>
 
                 <div className="glass-card p-5 space-y-4">
                   <h4 className="text-royal-300 font-bold text-sm">تغيير كلمة المرور</h4>
