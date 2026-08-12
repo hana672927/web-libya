@@ -1,9 +1,5 @@
 import { useState } from 'react';
-import {
-  X, Lock, ShieldAlert, LayoutDashboard, Image as ImageIcon, FolderOpen,
-  Save, Trash2, Plus, Edit3, RotateCcw, LogOut, Type, Phone, AlertTriangle,
-  Eye, EyeOff,
-} from 'lucide-react';
+import { X, Lock, ShieldAlert, LayoutDashboard, Image as ImageIcon, FolderOpen, Save, Trash2, Plus, CreditCard as Edit3, RotateCcw, LogOut, Type, Phone, TriangleAlert as AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import type { SiteContent, PortfolioProject } from '@/types';
 import { defaultContent } from '@/types';
 
