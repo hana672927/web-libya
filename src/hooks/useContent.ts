@@ -8,9 +8,19 @@ export function useContent() {
   const [content, setContent] = useState<SiteContent>(defaultContent);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const skipNextUpdate = useRef(false);
 
-  // Fetch content from Supabase on mount
+  // Counter of in-flight local writes whose realtime echoes we should skip.
+  // A counter (not boolean) handles multiple rapid writes correctly.
+  const pendingWrites = useRef(0);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleReset = useCallback(() => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => {
+      pendingWrites.current = 0;
+    }, 5000);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -30,15 +40,13 @@ export function useContent() {
       }
 
       if (data?.data) {
-        const merged = mergeContent(defaultContent, data.data as Partial<SiteContent>);
-        setContent(merged);
+        setContent(mergeContent(defaultContent, data.data as Partial<SiteContent>));
       }
       setLoading(false);
     };
 
     fetchContent();
 
-    // Realtime: listen for changes from other devices/sessions
     const channel = supabase
       .channel('site_content_changes')
       .on(
@@ -46,8 +54,9 @@ export function useContent() {
         { event: '*', schema: 'public', table: TABLE },
         (payload) => {
           if (!mounted) return;
-          if (skipNextUpdate.current) {
-            skipNextUpdate.current = false;
+          // Skip echoes of our own writes
+          if (pendingWrites.current > 0) {
+            pendingWrites.current--;
             return;
           }
           const newData = (payload.new as { data?: Partial<SiteContent> })?.data;
@@ -60,16 +69,16 @@ export function useContent() {
 
     return () => {
       mounted = false;
+      if (resetTimer.current) clearTimeout(resetTimer.current);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [scheduleReset]);
 
-  // Update content locally and persist to Supabase
   const updateContent = useCallback((updater: (prev: SiteContent) => SiteContent) => {
     setContent((prev) => {
       const next = updater(prev);
-      // Persist to DB without blocking UI
-      skipNextUpdate.current = true;
+      pendingWrites.current++;
+      scheduleReset();
       (async () => {
         const { error: upErr } = await supabase
           .from(TABLE)
@@ -80,10 +89,11 @@ export function useContent() {
       })();
       return next;
     });
-  }, []);
+  }, [scheduleReset]);
 
   const resetContent = useCallback(async () => {
-    skipNextUpdate.current = true;
+    pendingWrites.current++;
+    scheduleReset();
     const { error: upErr } = await supabase
       .from(TABLE)
       .upsert({ id: 1, data: defaultContent }, { onConflict: 'id' });
@@ -91,12 +101,11 @@ export function useContent() {
       console.error('Failed to reset content:', upErr.message);
     }
     setContent(defaultContent);
-  }, []);
+  }, [scheduleReset]);
 
   return { content, updateContent, resetContent, loading, error };
 }
 
-// Deep-merge fetched data over defaults so missing fields are filled
 function mergeContent(base: SiteContent, override: Partial<SiteContent>): SiteContent {
   return {
     ...base,

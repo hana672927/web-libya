@@ -66,19 +66,6 @@ export default function Hero({ content, onContactClick }: HeroProps) {
               </button>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-12 max-w-md mx-auto lg:mx-0">
-              {[
-                { num: '+50', label: 'مشروع منجز' },
-                { num: '+30', label: 'عميل سعيد' },
-                { num: '5', label: 'سنوات خبرة' },
-              ].map((s, i) => (
-                <div key={i} className="text-center lg:text-right">
-                  <div className="text-2xl sm:text-3xl font-extrabold gradient-text">{s.num}</div>
-                  <div className="text-xs sm:text-sm text-slate-400 mt-1">{s.label}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Visual */}

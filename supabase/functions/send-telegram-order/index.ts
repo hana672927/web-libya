@@ -22,8 +22,8 @@ Deno.serve(async (req: Request) => {
     const trimmedWhatsapp = typeof whatsapp === "string" ? whatsapp.trim() : "";
     const trimmedDetails = typeof details === "string" ? details.trim() : "";
 
-    if (!trimmedWhatsapp || !trimmedDetails) {
-      return json({ error: "رقم الواتساب والتفاصيل مطلوبة" }, 400);
+    if (!trimmedWhatsapp) {
+      return json({ error: "رقم الواتساب مطلوب لإتمام الطلب" }, 400);
     }
 
     const { data: settings, error: settingsError } = await supabase
@@ -36,15 +36,18 @@ Deno.serve(async (req: Request) => {
       return json({ error: "لم يتم إعداد قناة استقبال الطلبات بعد" }, 503);
     }
 
+    const trimmedName = typeof name === "string" ? name.trim() : "";
+    const trimmedStoreLink = typeof storeLink === "string" ? storeLink.trim() : "";
+
     const message = [
       "طلب جديد - ويب ليبيا",
       "",
-      `الاسم: ${escapeHtml(typeof name === "string" ? name.trim() : "—") || "—"}`,
+      `الاسم: ${trimmedName ? escapeHtml(trimmedName) : "—"}`,
       `رقم الواتساب: ${escapeHtml(trimmedWhatsapp)}`,
-      `رابط المتجر: ${escapeHtml(typeof storeLink === "string" ? storeLink.trim() : "") || "لا يوجد"}`,
+      `رابط المتجر: ${trimmedStoreLink ? escapeHtml(trimmedStoreLink) : "لا يوجد"}`,
       "",
       "تفاصيل الموقع المطلوب:",
-      escapeHtml(trimmedDetails),
+      trimmedDetails ? escapeHtml(trimmedDetails) : "لا توجد تفاصيل إضافية",
       "",
       `وقت الطلب: ${new Date().toLocaleString("ar-LY", { timeZone: "Africa/Tripoli" })}`,
     ].join("\n");

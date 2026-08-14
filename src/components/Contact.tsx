@@ -31,11 +31,6 @@ export default function Contact({ content }: ContactProps) {
       setErrorMsg('رقم الواتساب مطلوب لإتمام الطلب');
       return;
     }
-    if (!form.details.trim()) {
-      setStatus('error');
-      setErrorMsg('يرجى إدخال تفاصيل الموقع المطلوب');
-      return;
-    }
 
     setStatus('sending');
     setErrorMsg('');
@@ -200,10 +195,11 @@ export default function Contact({ content }: ContactProps) {
                 </div>
               </div>
 
-              {/* Website Description */}
+              {/* Website Description - Optional */}
               <div>
                 <label className="block text-slate-300 text-sm font-medium mb-2">
                   تفاصيل وفحوى الموقع المطلوب
+                  <span className="text-slate-500 text-xs mr-1">(اختياري)</span>
                 </label>
                 <div className="relative">
                   <MessageSquare className="absolute right-3 top-3 w-4 h-4 text-slate-500" />
@@ -213,7 +209,6 @@ export default function Contact({ content }: ContactProps) {
                     placeholder="اكتب تفاصيل المشروع، نوع الموقع، المميزات المطلوبة، الجمهور المستهدف..."
                     rows={5}
                     className="w-full pr-10 pl-4 py-3 rounded-xl bg-navy-950/50 border border-white/10 text-white placeholder-slate-500 focus:border-royal-400 focus:outline-none focus:ring-2 focus:ring-royal-500/20 transition-all resize-none"
-                    required
                   />
                 </div>
               </div>
