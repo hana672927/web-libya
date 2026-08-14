@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Send, CircleCheck as CheckCircle2, TriangleAlert as AlertTriangle, Facebook, Instagram, User, MessageSquare, Link2 } from 'lucide-react';
 import { TikTok } from '@/components/icons/TikTok';
+import { supabase } from '@/lib/supabase';
 import type { SiteContent } from '@/types';
 
 interface ContactProps {
@@ -36,27 +37,15 @@ export default function Contact({ content }: ContactProps) {
     setErrorMsg('');
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-telegram-order`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            name: form.name,
-            whatsapp: form.whatsapp,
-            storeLink: form.storeLink,
-            details: form.details,
-          }),
-        }
-      );
+      const { error: insertErr } = await supabase.from('orders').insert({
+        name: form.name.trim() || null,
+        whatsapp: form.whatsapp.trim(),
+        store_link: form.storeLink.trim() || '',
+        details: form.details.trim() || '',
+        status: 'new',
+      });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData?.error || `HTTP ${response.status}`);
-      }
+      if (insertErr) throw insertErr;
 
       setStatus('sent');
       setForm({ name: '', whatsapp: '', storeLink: '', details: '' });

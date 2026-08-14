@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { X, Lock, ShieldAlert, LayoutDashboard, Image as ImageIcon, FolderOpen, Save, Trash2, Plus, CreditCard as Edit3, RotateCcw, LogOut, Type, Phone, TriangleAlert as AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { X, Lock, ShieldAlert, LayoutDashboard, Image as ImageIcon, FolderOpen, Save, Trash2, Plus, CreditCard as Edit3, RotateCcw, LogOut, Type, Phone, TriangleAlert as AlertTriangle, Eye, EyeOff, Inbox, Clock, CircleCheck, XCircle, MessageSquare, User } from 'lucide-react';
 import type { SiteContent, PortfolioProject } from '@/types';
 import { defaultContent } from '@/types';
+import { useOrders } from '@/hooks/useOrders';
+import ImageUpload from '@/components/ImageUpload';
 
 interface AdminPanelProps {
   content: SiteContent;
@@ -10,7 +12,14 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
-type Tab = 'text' | 'portfolio' | 'images' | 'contact' | 'security';
+type Tab = 'text' | 'portfolio' | 'images' | 'contact' | 'orders' | 'security';
+
+const ORDER_STATUSES = [
+  { value: 'new', label: 'جديد', icon: Clock, color: 'text-cyan-300 bg-cyan-500/10 border-cyan-400/20' },
+  { value: 'contacted', label: 'تم التواصل', icon: MessageSquare, color: 'text-yellow-300 bg-yellow-500/10 border-yellow-400/20' },
+  { value: 'completed', label: 'مكتمل', icon: CircleCheck, color: 'text-green-300 bg-green-500/10 border-green-400/20' },
+  { value: 'archived', label: 'مؤرشف', icon: XCircle, color: 'text-slate-400 bg-slate-500/10 border-slate-400/20' },
+];
 
 export default function AdminPanel({ content, updateContent, resetContent, onClose }: AdminPanelProps) {
   const [authed, setAuthed] = useState(false);
@@ -22,10 +31,8 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
   const [savedFlash, setSavedFlash] = useState(false);
   const [newPasscode, setNewPasscode] = useState('');
   const [passcodeMsg, setPasscodeMsg] = useState('');
-  const [telegramToken, setTelegramToken] = useState('');
-  const [telegramChatId, setTelegramChatId] = useState('');
-  const [telegramMsg, setTelegramMsg] = useState('');
-  const [telegramSaving, setTelegramSaving] = useState(false);
+  const { orders, loading: ordersLoading, updateOrderStatus, deleteOrder } = useOrders();
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +55,7 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
     { id: 'portfolio', label: 'الأعمال', icon: FolderOpen },
     { id: 'images', label: 'الصور', icon: ImageIcon },
     { id: 'contact', label: 'التواصل', icon: Phone },
+    { id: 'orders', label: 'الطلبات', icon: Inbox },
     { id: 'security', label: 'الأمان', icon: ShieldAlert },
   ];
 
@@ -112,11 +120,6 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
   }
 
   // --- Dashboard ---
-  const updateField = <K extends keyof SiteContent>(key: K, value: SiteContent[K]) => {
-    updateContent((prev) => ({ ...prev, [key]: value }));
-    flashSaved();
-  };
-
   const handleSaveProject = (project: PortfolioProject) => {
     updateContent((prev) => {
       const exists = prev.portfolio.projects.some((p) => p.id === project.id);
@@ -140,38 +143,6 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
     flashSaved();
   };
 
-  const handleSaveTelegram = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTelegramSaving(true);
-    setTelegramMsg('');
-
-    try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-telegram-config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          adminPasscode: content.adminPasscode,
-          botToken: telegramToken,
-          chatId: telegramChatId,
-        }),
-      });
-
-      if (!response.ok) throw new Error('Telegram settings save failed');
-      setTelegramToken('');
-      setTelegramChatId('');
-      setTelegramMsg('تم حفظ إعدادات Telegram بأمان');
-      flashSaved();
-    } catch (error) {
-      console.error(error);
-      setTelegramMsg('تعذر حفظ إعدادات Telegram');
-    } finally {
-      setTelegramSaving(false);
-    }
-  };
-
   const handleChangePasscode = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPasscode.length < 4) {
@@ -183,6 +154,24 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
     setPasscodeMsg('تم تغيير كلمة المرور بنجاح');
     setTimeout(() => setPasscodeMsg(''), 3000);
   };
+
+  const formatDate = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString('ar-LY', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+        timeZone: 'Africa/Tripoli',
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  const getStatusInfo = (status: string) => {
+    return ORDER_STATUSES.find((s) => s.value === status) || ORDER_STATUSES[0];
+  };
+
+  const newOrdersCount = orders.filter((o) => o.status === 'new').length;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-navy-950/90 backdrop-blur-md animate-fade-in">
@@ -231,7 +220,7 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap relative ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-l from-royal-500/30 to-cyan-400/20 text-white border border-royal-400/30'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -239,6 +228,11 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
               >
                 <tab.icon className="w-4 h-4 flex-shrink-0" />
                 {tab.label}
+                {tab.id === 'orders' && newOrdersCount > 0 && (
+                  <span className="absolute top-1 left-1 w-5 h-5 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {newOrdersCount}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -439,36 +433,17 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
                   إدارة الصور
                 </h3>
 
-                {[
-                  { label: 'صورة القسم الرئيسي (Hero)', value: content.hero.image, onChange: (v: string) => updateContent((p) => ({ ...p, hero: { ...p.hero, image: v } })) },
-                  { label: 'صورة قسم "من نحن"', value: content.about.image, onChange: (v: string) => updateContent((p) => ({ ...p, about: { ...p.about, image: v } })) },
-                ].map((img, i) => (
-                  <div key={i} className="glass-card p-5 space-y-3">
-                    <h4 className="text-royal-300 font-bold text-sm">{img.label}</h4>
-                    <div className="flex gap-4">
-                      <div className="w-28 h-20 rounded-lg overflow-hidden bg-navy-800 flex-shrink-0">
-                        {img.value ? (
-                          <img src={img.value} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-slate-600" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-slate-300 text-xs mb-1.5">رابط الصورة (URL)</label>
-                        <input
-                          type="text"
-                          value={img.value}
-                          onChange={(e) => img.onChange(e.target.value)}
-                          placeholder="https://..."
-                          className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
-                          dir="ltr"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                <ImageUpload
+                  label="صورة القسم الرئيسي (Hero)"
+                  value={content.hero.image}
+                  onChange={(v) => { updateContent((p) => ({ ...p, hero: { ...p.hero, image: v } })); flashSaved(); }}
+                />
+
+                <ImageUpload
+                  label="صورة قسم «من نحن»"
+                  value={content.about.image}
+                  onChange={(v) => { updateContent((p) => ({ ...p, about: { ...p.about, image: v } })); flashSaved(); }}
+                />
               </div>
             )}
 
@@ -507,6 +482,119 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
               </div>
             )}
 
+            {/* ORDERS TAB */}
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <Inbox className="w-5 h-5 text-cyan-400" />
+                  الطلبات الواردة
+                  {newOrdersCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-bold">
+                      {newOrdersCount} جديد
+                    </span>
+                  )}
+                </h3>
+
+                {ordersLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-cyan-400 rounded-full animate-spin" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="glass-card p-12 text-center">
+                    <Inbox className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400 text-sm">لا توجد طلبات بعد</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {orders.map((order) => {
+                      const statusInfo = getStatusInfo(order.status);
+                      const isExpanded = expandedOrder === order.id;
+                      return (
+                        <div key={order.id} className="glass-card overflow-hidden">
+                          <div
+                            className="p-4 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                            onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <User className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                                  <span className="text-white font-bold text-sm truncate">
+                                    {order.name || 'بدون اسم'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-400 text-xs">
+                                  <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span dir="ltr">{order.whatsapp}</span>
+                                  <span className="text-slate-600">•</span>
+                                  <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span>{formatDate(order.created_at)}</span>
+                                </div>
+                              </div>
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex-shrink-0 ${statusInfo.color}`}>
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+                              {order.store_link && (
+                                <div>
+                                  <span className="text-slate-500 text-xs">رابط المتجر:</span>
+                                  <a href={order.store_link} target="_blank" rel="noopener noreferrer" className="text-cyan-300 text-xs mr-2 hover:underline" dir="ltr">
+                                    {order.store_link}
+                                  </a>
+                                </div>
+                              )}
+                              {order.details && (
+                                <div>
+                                  <span className="text-slate-500 text-xs">التفاصيل:</span>
+                                  <p className="text-slate-300 text-sm mt-1 leading-relaxed">{order.details}</p>
+                                </div>
+                              )}
+                              {!order.store_link && !order.details && (
+                                <p className="text-slate-500 text-xs">لا توجد تفاصيل إضافية</p>
+                              )}
+
+                              <div className="flex flex-wrap items-center gap-2 pt-2">
+                                <span className="text-slate-500 text-xs">تغيير الحالة:</span>
+                                {ORDER_STATUSES.map((s) => (
+                                  <button
+                                    key={s.value}
+                                    onClick={() => updateOrderStatus(order.id, s.value)}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                                      order.status === s.value
+                                        ? s.color
+                                        : 'border-white/10 text-slate-400 hover:bg-white/5'
+                                    }`}
+                                  >
+                                    {s.label}
+                                  </button>
+                                ))}
+                                <button
+                                  onClick={() => {
+                                    if (confirm('هل تريد حذف هذا الطلب؟')) {
+                                      deleteOrder(order.id);
+                                      setExpandedOrder(null);
+                                    }
+                                  }}
+                                  className="px-3 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium flex items-center gap-1.5 transition-all mr-auto"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  حذف
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* SECURITY TAB */}
             {activeTab === 'security' && (
               <div className="space-y-6 max-w-2xl">
@@ -514,42 +602,6 @@ export default function AdminPanel({ content, updateContent, resetContent, onClo
                   <ShieldAlert className="w-5 h-5 text-cyan-400" />
                   الأمان والإعدادات
                 </h3>
-
-                <div className="glass-card p-5 space-y-4">
-                  <h4 className="text-royal-300 font-bold text-sm">إعدادات استقبال الطلبات</h4>
-                  <p className="text-slate-400 text-xs leading-relaxed">تُحفظ هذه البيانات في مكان خاص ولا تظهر لزوار الموقع. ستصل الطلبات إلى المحادثة المرتبطة بالبوت مباشرة.</p>
-                  <form onSubmit={handleSaveTelegram} className="space-y-3">
-                    <div>
-                      <label className="block text-slate-300 text-xs mb-1.5">Telegram Bot Token</label>
-                      <input
-                        type="password"
-                        value={telegramToken}
-                        onChange={(e) => setTelegramToken(e.target.value)}
-                        placeholder="أدخل رمز البوت"
-                        required
-                        className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
-                        dir="ltr"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-300 text-xs mb-1.5">Telegram Chat ID</label>
-                      <input
-                        type="text"
-                        value={telegramChatId}
-                        onChange={(e) => setTelegramChatId(e.target.value)}
-                        placeholder="أدخل رقم المحادثة"
-                        required
-                        className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
-                        dir="ltr"
-                      />
-                    </div>
-                    <button type="submit" disabled={telegramSaving} className="btn-primary text-sm py-2.5 px-5 flex items-center gap-2 w-fit disabled:opacity-50">
-                      <Save className="w-4 h-4" />
-                      {telegramSaving ? 'جارٍ الحفظ...' : 'حفظ إعدادات Telegram'}
-                    </button>
-                    {telegramMsg && <p className="text-sm text-cyan-300">{telegramMsg}</p>}
-                  </form>
-                </div>
 
                 <div className="glass-card p-5 space-y-4">
                   <h4 className="text-royal-300 font-bold text-sm">تغيير كلمة المرور</h4>
@@ -670,22 +722,11 @@ function ProjectEditor({
               className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all resize-none"
             />
           </div>
-          <div>
-            <label className="block text-slate-300 text-xs mb-1.5">رابط الصورة (URL)</label>
-            <input
-              type="text"
-              value={draft.image}
-              onChange={(e) => setDraft({ ...draft, image: e.target.value })}
-              placeholder="https://..."
-              dir="ltr"
-              className="w-full px-3 py-2.5 rounded-lg bg-navy-950/50 border border-white/10 text-white text-sm focus:border-royal-400 focus:outline-none transition-all"
-            />
-            {draft.image && (
-              <div className="mt-2 h-24 rounded-lg overflow-hidden bg-navy-800">
-                <img src={draft.image} alt="" className="w-full h-full object-cover" />
-              </div>
-            )}
-          </div>
+          <ImageUpload
+            label="صورة المشروع"
+            value={draft.image}
+            onChange={(v) => setDraft({ ...draft, image: v })}
+          />
           <div>
             <label className="block text-slate-300 text-xs mb-1.5">رابط المشروع (اختياري)</label>
             <input
